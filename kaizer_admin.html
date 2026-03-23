@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Kaizer News Admin</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+.header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;gap:12px}
+.logo{font-size:20px;font-weight:800;color:#e6edf3}
+.logo span{color:#cc0000}
+.live-dot{width:10px;height:10px;border-radius:50%;background:#3fb950;animation:pulse 1.5s infinite}
+.live-dot.dead{background:#f85149;animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:24px;max-width:1200px;margin:0 auto}
+@media(max-width:768px){.grid{grid-template-columns:1fr}}
+.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px}
+.card h3{font-size:12px;color:#7d8590;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px}
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600}
+.s-streaming{background:#0d2b16;color:#3fb950;border:1px solid #238636}
+.s-generating{background:#0d1b3e;color:#79c0ff;border:1px solid #1f6feb}
+.s-scripting{background:#1a0a35;color:#d2a8ff;border:1px solid #8250df}
+.s-fetching{background:#1a1a0a;color:#d29922;border:1px solid #9e6a03}
+.s-error{background:#3d1212;color:#f85149;border:1px solid #da3633}
+.s-starting{background:#21262d;color:#7d8590;border:1px solid #30363d}
+.stat{margin-bottom:14px}
+.stat-label{font-size:11px;color:#7d8590;margin-bottom:3px}
+.stat-value{font-size:14px;color:#e6edf3;font-weight:600}
+.btn{padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;width:100%;margin-bottom:8px;transition:.15s}
+.btn:hover{opacity:.85}.btn:active{opacity:.7}
+.btn-green{background:#238636;color:#fff}
+.btn-red{background:#da3633;color:#fff}
+.btn-blue{background:#1f6feb;color:#fff}
+.btn-grey{background:#21262d;color:#e6edf3;border:1px solid #30363d}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.log-entry{padding:6px 0;border-bottom:1px solid #21262d;font-size:12px;font-family:monospace;display:flex;gap:10px}
+.log-entry:last-child{border-bottom:none}
+.log-time{color:#7d8590;flex-shrink:0}
+.log-info{color:#e6edf3}
+.log-warn{color:#d29922}
+.log-error{color:#f85149}
+.log-box{max-height:300px;overflow-y:auto}
+.api-url{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;font-family:monospace;font-size:12px;color:#79c0ff;margin-bottom:12px;width:100%}
+.youtube-embed{width:100%;aspect-ratio:16/9;border-radius:8px;border:none}
+.indicator{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.indicator-dot{width:8px;height:8px;border-radius:50%}
+.dot-green{background:#3fb950}
+.dot-red{background:#f85149}
+.dot-yellow{background:#d29922}
+.full-width{grid-column:1/-1}
+.progress-bar{height:4px;background:#21262d;border-radius:2px;margin-top:8px;overflow:hidden}
+.progress-fill{height:100%;background:#238636;border-radius:2px;transition:width .5s}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="live-dot" id="LDOT"></div>
+  <div class="logo">KAIZER <span>NEWS</span> TELUGU — Admin</div>
+  <div style="margin-left:auto;font-size:12px;color:#7d8590" id="HTIME"></div>
+</div>
+
+<div class="grid">
+
+  <!-- Status Card -->
+  <div class="card">
+    <h3>Live Status</h3>
+    <div id="STATUS_BADGE" class="status-badge s-starting">⏳ Starting...</div>
+    <div class="progress-bar"><div class="progress-fill" id="PROG" style="width:0%"></div></div>
+    <br>
+    <div class="stat"><div class="stat-label">Current Story</div><div class="stat-value" id="STORY">—</div></div>
+    <div class="stat"><div class="stat-label">Last Bulletin</div><div class="stat-value" id="LAST">—</div></div>
+    <div class="stat"><div class="stat-label">Next Bulletin</div><div class="stat-value" id="NEXT">—</div></div>
+    <div class="stat"><div class="stat-label">Bulletins Today</div><div class="stat-value" id="COUNT">0</div></div>
+    <div class="stat"><div class="stat-label">Error</div><div class="stat-value" id="ERR" style="color:#f85149">—</div></div>
+  </div>
+
+  <!-- Controls Card -->
+  <div class="card">
+    <h3>Controls</h3>
+    <div class="indicator">
+      <div class="indicator-dot" id="SDOT"></div>
+      <span style="font-size:13px" id="STEXT">Stream status unknown</span>
+    </div>
+    <button class="btn btn-green" id="TRIG" onclick="trigger()">▶ Generate New Bulletin Now</button>
+    <button class="btn btn-red" id="STOP" onclick="stopStream()">⏹ Stop YouTube Stream</button>
+    <button class="btn btn-blue" id="STRT" onclick="startStream()">▶ Restart YouTube Stream</button>
+    <hr style="border-color:#30363d;margin:12px 0">
+    <h3 style="margin-bottom:12px">Railway API URL</h3>
+    <input class="api-url" id="API_URL" value="https://your-app.railway.app" 
+           oninput="saveUrl(this.value)" placeholder="https://your-app.railway.app">
+    <p style="font-size:11px;color:#7d8590">Get from Railway → your project → Settings → Networking → Domain</p>
+  </div>
+
+  <!-- YouTube Preview -->
+  <div class="card">
+    <h3>YouTube Channel</h3>
+    <iframe class="youtube-embed" 
+      src="https://www.youtube.com/embed/live_stream?channel=UCxxxxxxxx&autoplay=1"
+      id="YT_EMBED"
+      allow="autoplay" allowfullscreen></iframe>
+    <br>
+    <input class="api-url" id="YT_ID" placeholder="YouTube Channel ID (UCxxxxxxxx)"
+           oninput="updateYT(this.value)" value="">
+    <button class="btn btn-grey" onclick="window.open('https://studio.youtube.com','_blank')">
+      Open YouTube Studio ↗
+    </button>
+  </div>
+
+  <!-- Logs Card -->
+  <div class="card full-width">
+    <h3>Live Logs <span style="color:#7d8590;font-weight:400;font-size:11px">— auto-refreshes every 5s</span></h3>
+    <div class="log-box" id="LOGS">
+      <div class="log-entry"><span class="log-time">--:--:--</span><span class="log-info">Waiting for connection...</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var API = localStorage.getItem("kaizer_api") || "";
+var YT  = localStorage.getItem("kaizer_yt")  || "";
+
+document.getElementById("API_URL").value = API;
+document.getElementById("YT_ID").value = YT;
+if(YT) updateYT(YT);
+
+function saveUrl(v){ API=v; localStorage.setItem("kaizer_api",v); }
+function updateYT(v){
+  YT=v; localStorage.setItem("kaizer_yt",v);
+  document.getElementById("YT_EMBED").src =
+    "https://www.youtube.com/embed/live_stream?channel="+v+"&autoplay=1";
+}
+
+var STATUS_MAP = {
+  starting:    {cls:"s-starting",   icon:"⏳", label:"Starting",    prog:5},
+  fetching:    {cls:"s-fetching",   icon:"📡", label:"Fetching News",prog:20},
+  scripting:   {cls:"s-scripting",  icon:"✍️", label:"Writing Script",prog:40},
+  generating:  {cls:"s-generating", icon:"🎬", label:"Generating Avatar",prog:60},
+  compositing: {cls:"s-generating", icon:"🎞", label:"Compositing Video",prog:80},
+  streaming:   {cls:"s-streaming",  icon:"🔴", label:"LIVE on YouTube",prog:100},
+  error:       {cls:"s-error",      icon:"⚠️", label:"Error",        prog:0},
+};
+
+function setStatus(s){
+  var m = STATUS_MAP[s] || STATUS_MAP.starting;
+  var el = document.getElementById("STATUS_BADGE");
+  el.className = "status-badge "+m.cls;
+  el.textContent = m.icon+" "+m.label;
+  document.getElementById("PROG").style.width = m.prog+"%";
+  // live dot
+  var dot = document.getElementById("LDOT");
+  dot.className = s==="streaming" ? "live-dot" : "live-dot dead";
+}
+
+function updateUI(data){
+  setStatus(data.status||"starting");
+  document.getElementById("STORY").textContent = (data.current_story||"—").slice(0,60);
+  document.getElementById("LAST").textContent  = data.last_bulletin || "—";
+  document.getElementById("NEXT").textContent  = data.next_bulletin || "—";
+  document.getElementById("COUNT").textContent = data.cycle_count || 0;
+  document.getElementById("ERR").textContent   = data.error || "—";
+  // stream dot
+  var live = data.stream_live;
+  var sdot = document.getElementById("SDOT");
+  sdot.className = "indicator-dot "+(live?"dot-green":"dot-red");
+  document.getElementById("STEXT").textContent = live ? "Stream is LIVE on YouTube" : "Stream is offline";
+}
+
+function updateLogs(logs){
+  if(!logs||!logs.length) return;
+  var html = logs.map(function(l){
+    return '<div class="log-entry"><span class="log-time">'+l.time+'</span>'+
+           '<span class="log-'+l.level+'">'+escHtml(l.msg)+'</span></div>';
+  }).join("");
+  document.getElementById("LOGS").innerHTML = html;
+}
+
+function escHtml(t){ return (t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function callAPI(path, method){
+  if(!API){ alert("Set Railway API URL first"); return Promise.reject(); }
+  return fetch(API+path, {method:method||"GET"})
+    .then(function(r){return r.json();})
+    .catch(function(e){ console.error("API error:",e); alert("Cannot reach API: "+e.message); });
+}
+
+function trigger(){
+  if(!confirm("Generate a new bulletin now?")) return;
+  callAPI("/trigger","POST").then(function(r){ alert(r.msg); });
+}
+function stopStream(){
+  if(!confirm("Stop the YouTube stream?")) return;
+  callAPI("/stop","POST").then(function(r){ alert(r.msg); });
+}
+function startStream(){
+  callAPI("/start","POST").then(function(r){ alert(r.msg); });
+}
+
+function refresh(){
+  if(!API) return;
+  callAPI("/status","GET").then(function(data){
+    if(data) updateUI(data);
+    updateLogs(data.logs||[]);
+  });
+}
+
+// Clock
+function clock(){
+  document.getElementById("HTIME").textContent = new Date().toLocaleTimeString();
+}
+setInterval(clock,1000); clock();
+
+// Auto refresh every 5s
+setInterval(refresh, 5000);
+refresh();
+</script>
+</body>
+</html>

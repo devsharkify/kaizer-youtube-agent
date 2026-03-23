@@ -3,3 +3,5 @@ requests
 schedule
 Pillow
 numpy
+flask
+flask-cors
