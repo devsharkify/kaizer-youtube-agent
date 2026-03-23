@@ -90,7 +90,7 @@ def composite_video(avatar_path, template_path, stories, script, logo_path, outp
     # 5. Filter complex
     flt = []
     flt.append(f"[0:v]scale={W}:{H}[bg]")
-    flt.append(f"[1:v]scale={RW}:{RH},chromakey=0x00c851:0.35:0.1[av_keyed]")
+    flt.append(f"[1:v]scale={RW}:{RH},format=yuv420p,chromakey=0x00c851:0.42:0.05,format=yuva420p[av_keyed]")
     flt.append(f"[{logo_idx}:v]scale=48:-1[logo]")
     flt.append(f"[bg][av_keyed]overlay={RX}:{RY}[with_av]")
 
