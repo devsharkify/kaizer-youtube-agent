@@ -4,6 +4,8 @@
 # ============================================================
 
 from flask import Flask, jsonify, request
+from zoneinfo import ZoneInfo
+IST = ZoneInfo('Asia/Kolkata')
 from flask_cors import CORS
 import threading, os, logging
 
@@ -25,7 +27,7 @@ state = {
 
 def log_event(msg, level="info"):
     import datetime
-    entry = {"time": datetime.datetime.now().strftime("%H:%M:%S"), "msg": msg, "level": level}
+    entry = {"time": datetime.datetime.now(IST).strftime("%H:%M:%S IST"), "msg": msg, "level": level}
     state["logs"].insert(0, entry)
     state["logs"] = state["logs"][:100]  # keep last 100
 
