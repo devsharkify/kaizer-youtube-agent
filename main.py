@@ -1,13 +1,11 @@
 # ============================================================
 # KAIZER NEWS TELUGU — MODE 2 MAIN
-# Full auto pipeline: RSS → Claude → HeyGen → Compositor → YouTube
-# Runs every 30 minutes, streams 24/7
 # ============================================================
 
-import os, time, logging, schedule, glob
+import os, time, logging, schedule
 from datetime import datetime
-from config import BULLETIN_INTERVAL_MIN, STORIES_PER_BULLETIN
-from scraper      import fetch_stories
+from config import BULLETIN_INTERVAL_MIN
+from scraper       import fetch_stories
 from script_writer import write_telugu_script
 from heygen        import generate_video
 from compositor    import composite_video
@@ -20,39 +18,38 @@ logging.basicConfig(
 )
 log = logging.getLogger("main")
 
-WORK_DIR   = "/tmp/kaizer"
-LOGO_PATH  = os.path.join(os.path.dirname(__file__), "assets/logo.png")
-TEMPLATE   = os.path.join(os.path.dirname(__file__), "assets/template.mp4")
+WORK_DIR    = "/tmp/kaizer"
+ASSETS_DIR  = os.path.join(os.path.dirname(__file__), "assets")
+LOGO_PATH   = os.path.join(ASSETS_DIR, "logo.png")
+TEMPLATE    = os.path.join(ASSETS_DIR, "template.mp4")
 CURRENT_MP4 = os.path.join(WORK_DIR, "current_bulletin.mp4")
 NEXT_MP4    = os.path.join(WORK_DIR, "next_bulletin.mp4")
 
 os.makedirs(WORK_DIR, exist_ok=True)
 
 def bulletin_cycle():
-    """One full bulletin: scrape → script → generate → composite → swap."""
     ts = datetime.now().strftime("%H:%M")
     log.info(f"═══ BULLETIN CYCLE {ts} ═══")
-
     try:
-        # Step 1: Fetch news
+        # 1. News
         log.info("1. Fetching news...")
         stories = fetch_stories()
         if not stories:
-            log.warning("No stories with images found — skipping cycle")
+            log.warning("No stories with images — skipping")
             return
         log.info(f"   Got {len(stories)} stories")
 
-        # Step 2: Write Telugu script
+        # 2. Script
         log.info("2. Writing Telugu script...")
         script = write_telugu_script(stories)
 
-        # Step 3: Generate HeyGen avatar video
-        log.info("3. Generating HeyGen avatar video...")
+        # 3. HeyGen
+        log.info("3. Generating HeyGen video...")
         raw_av = os.path.join(WORK_DIR, "raw_avatar.mp4")
         generate_video(script, raw_av)
 
-        # Step 4: Composite final video
-        log.info("4. Compositing final video...")
+        # 4. Composite
+        log.info("4. Compositing...")
         composite_video(
             avatar_path=raw_av,
             template_path=TEMPLATE,
@@ -62,19 +59,17 @@ def bulletin_cycle():
             output_path=NEXT_MP4
         )
 
-        # Step 5: Swap stream
-        log.info("5. Swapping stream to new bulletin...")
+        # 5. Swap stream
+        log.info("5. Swapping stream...")
         swap_video(NEXT_MP4)
 
-        # Cleanup old raw avatar
         if os.path.exists(raw_av):
             os.remove(raw_av)
 
-        log.info(f"✓ Bulletin {ts} live on YouTube!")
+        log.info(f"✓ Bulletin {ts} live!")
 
     except Exception as e:
         log.error(f"Cycle failed: {e}", exc_info=True)
-        # Keep streaming current video — don't interrupt
 
 def main():
     log.info("╔══════════════════════════════════════╗")
@@ -86,23 +81,21 @@ def main():
     # Run first bulletin immediately
     bulletin_cycle()
 
-    # If stream not up yet (first run failed), try to stream whatever exists
-    if not is_streaming() and os.path.exists(NEXT_MP4):
-        start_stream(NEXT_MP4)
-
-    # Schedule subsequent bulletins
+    # Schedule
     schedule.every(BULLETIN_INTERVAL_MIN).minutes.do(bulletin_cycle)
+    log.info(f"Next bulletin in {BULLETIN_INTERVAL_MIN} min")
 
-    log.info(f"Scheduler running — next bulletin in {BULLETIN_INTERVAL_MIN} min")
     while True:
         schedule.run_pending()
-        # Watchdog: restart stream if it died
+        # Watchdog — only restart if we have a video file
         if not is_streaming():
-            log.warning("Stream died — restarting...")
-            for mp4 in [CURRENT_MP4, NEXT_MP4]:
+            for mp4 in [NEXT_MP4, CURRENT_MP4]:
                 if os.path.exists(mp4):
+                    log.warning("Stream died — restarting...")
                     start_stream(mp4)
                     break
+            else:
+                log.info("Waiting for first bulletin to generate...")
         time.sleep(10)
 
 if __name__ == "__main__":
